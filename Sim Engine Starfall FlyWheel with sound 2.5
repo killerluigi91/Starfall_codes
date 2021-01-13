@@ -1,0 +1,53 @@
+--@name Sim Engine Starfall FlyWheel with sound 2.5
+--@author killerluigi91
+--@shared
+if SERVER then 
+    constraint.setConstraintClean(true)
+    wire.adjustInputs({'POD','FlyWheel','Base'},{'wirelink','entity','entity'})
+    local pod = wire.ports.POD
+    local Wheel = wire.ports.FlyWheel
+    local BASE = wire.ports.Base
+    hook.add('input','getInputs',function(inp,val)
+        if inp == 'POD' then pod = val end
+        if inp == 'FlyWheel' then Wheel = val end
+        if inp == 'Base' then BASE = val end
+    end)
+    local snd = sounds.create(Wheel,"acf_engines/electric_large.wav", false)
+
+    function bool2number(bool)
+        if bool then return 1 else return 0 end
+    end
+    
+    local SmoothRPM = 0
+    local Lock = false
+    hook.add('tick','go',function()
+        if isValid(pod) and isValid(Wheel) then
+        Wheel:setInertia(Vector(20,10,20))
+            local Ratio = 0.50
+            local RPMLimit = 2000
+            local FWAV = Wheel:getAngleVelocity()[2]/6
+            local RPM = math.abs((FWAV*6)/7.25)
+            local Mph = math.abs(math.floor(BASE:getVelocity():getLength() * 3600 / 63360 * 0.75))
+            wire.ports["Rpm"] = math.abs(math.floor(RPM))
+            wire.ports["Mph"] = Mph 
+            if (pod.Alt)==1 and (pod.Alt)==1 then Lock = not Lock end
+            if (bool2number(Lock)==1 and bool2number(Lock)==1) then
+            constraint.weld(Wheel,BASE, 0, 0, 0, 1)
+            BASE:setColor(Color(255,0,0))
+            else constraint.breakType(Wheel,"Weld")
+            BASE:setColor(Color(0,255,0))
+            end
+            if math.abs(RPM)>0 then snd:play() else snd:stop() end
+            SmoothRPM = (RPM-SmoothRPM)/10
+            snd:setPitch((SmoothRPM),0)
+            Throttle = (pod.W - pod.S) * bool2number(RPM<RPMLimit)
+            if pod.Shift==1 then Torque = 4000 else Torque = 500 end
+            wire.ports["Torque"] = Torque
+            if bool2number(Lock)==0 and pod.Space==0 then 
+            Force = (math.abs(Torque)*Throttle*math.abs(Ratio)) + (FWAV*Ratio) else Force = 0 end
+            if pod.W or pod.S and pod.Space==0 then Wheel:applyTorque(Wheel:getRight()*(Force/Ratio)*30) end
+            Wheel:applyAngForce(-Wheel:getAngleVelocityAngle()*((pod.Space)*1000))
+            end
+    end)
+wire.adjustOutputs({"Rpm","Mph","Torque"},{"number","number","number"})
+end
