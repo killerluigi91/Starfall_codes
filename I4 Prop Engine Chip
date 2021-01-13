@@ -1,0 +1,55 @@
+--@name I4 Prop Engine Chip
+--@author killerluigi91
+--@server
+
+    wire.adjustInputs({'Base','Crank','A','P1','P2','P3','P4'},{'entity','entity','number','entity','entity','entity','entity'})
+    local crank = wire.ports.Crank
+    local base = wire.ports.Base
+    local a = wire.ports.A
+    local p1 = wire.ports.P1
+    local p2 = wire.ports.P2
+    local p3 = wire.ports.P3
+    local p4 = wire.ports.P4    
+
+    hook.add('input','getInputs',function(inp,val)
+        if inp == 'Crank' then crank = val end
+        if inp == 'Base' then base = val end
+        if inp == 'A' then a = val end
+        if inp == 'P1' then p1 = val end
+        if inp == 'P2' then p2 = val end
+        if inp == 'P3' then p3 = val end
+        if inp == 'P4' then p4 = val end
+    end)
+    
+    local snd = sounds.create(chip():isWeldedTo(),"acf_engines/i1_medium.wav", false) 
+    
+    function bearing(this,vector)
+        local Pi = 3.14
+        local rad2deg = 180 / Pi
+        local atan2 = math.atan2
+        local pos = Vector()
+        pos = this:worldToLocal(Vector(pos[1],pos[2],pos[3]))
+        return math.floor(rad2deg*-atan2(pos.y, pos.x))
+    end
+
+local Power = 250
+
+hook.add("tick","",function()
+if isValid(crank) and isValid(base) then
+local SRPM = 0
+local RPM = math.abs(math.floor(crank:getAngleVelocity()[3]/360*60))
+local Bearing = math.floor(bearing(crank,(base:getPos()+Vector(0,0,1)):getRotated(base:getAngles()))+180)
+if math.abs(RPM)>0 then snd:play() else snd:stop() end
+SRPM = (SRPM + RPM)/5
+snd:setPitch(((SRPM)/7.84),0)
+T = (a*Power)
+if isValid(p1) then p1:applyForceCenter((-p1:getUp()*math.sin(Bearing+0)*T)) end
+if isValid(p2) then p2:applyForceCenter((-p2:getUp()*math.sin(Bearing+180)*T)) end
+if isValid(p3) then p3:applyForceCenter((-p3:getUp()*math.sin(Bearing+180)*T)) end
+if isValid(p4) then p4:applyForceCenter((-p4:getUp()*math.sin(Bearing+0)*T)) end
+wire.ports["Bearing"] = Bearing
+wire.ports["Rpm"] = RPM
+end
+end)
+
+wire.adjustOutputs({"Bearing","Rpm"},{"number","number"})
